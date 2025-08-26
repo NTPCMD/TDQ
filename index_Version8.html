@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>DEMYRA: The Expansive Text Adventure</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    html, body { background: #f7f7f7; font-family: 'Courier New', monospace; color: #222; margin:0; height:100%;}
+    .container { max-width: 570px; margin: 42px auto; background: #fff; border: 2px solid #888; border-radius: 8px; box-shadow: 0 6px 24px rgba(0,0,0,0.12); padding: 32px; }
+    .title { text-align: center; font-size: 2.1em; margin-bottom: 14px; letter-spacing:2px;}
+    .story { margin-bottom: 24px; min-height: 120px; }
+    .choices { display: flex; flex-direction: column; gap: 12px; }
+    .choice-btn { padding: 12px 16px; background: #e3e3e3; border: none; border-radius: 4px; font-size: 1em; cursor: pointer; transition: background 0.2s; }
+    .choice-btn:hover { background: #bbb; }
+    .footer { text-align: center; color: #888; font-size: 0.9em; margin-top: 30px; }
+    .inv { padding: 8px 0 0 0; font-size: 0.92em; color: #334; }
+    img.demyra-img { display: block; margin: 30px auto 0 auto; max-width: 100%; border-radius: 10px; box-shadow: 0 4px 16px rgba(0,0,0,0.12); border: 2px solid #ccc; }
+    .letters span { font-weight: bold; font-size: 1.1em; color: #0074d9; margin-right: 3px;}
+    .hint { color: #888; font-size: 0.95em; }
+    .deadend { color: #c00; font-weight: bold; }
+  </style>
+</head>
+<body>
+  <div class="container" id="game">
+    <div class="title">DEMYRA: The Expansive Quest</div>
+    <div class="story" id="story"></div>
+    <div class="inv" id="inv"></div>
+    <div class="choices" id="choices"></div>
+  </div>
+  <div class="footer">Inspired by hidden text adventures. Made by NTPCMD.</div>
+  <script>
+    // --------------------------------------
+    // Inventory and helpers
+    let inv = {
+      map: false,
+      coin: false,
+      flower: false,
+      can: false,
+      banana: false,
+      snack: false,
+      disk: false,
+      brush: false,
+      mural_code: false,
+      paddle: false,
+      trophy: false,
+      wrench: false,
+      bolts_loosened: false,
+      ext: false,
+      crowbar: false,
+      book: false,
+      secret_note: false,
+      robot_friend: false,
+      // Letters:
+      letter_d: false,
+      letter_e: false,
+      letter_m: false,
+      letter_y: false,
+      letter_r: false,
+      letter_a: false
+    };
+
+    // Letter keys for inventory
+    const letters = {
+      letter_d: "letter_d",
+      letter_e: "letter_e",
+      letter_m: "letter_m",
+      letter_y: "letter_y",
+      letter_r: "letter_r",
+      letter_a: "letter_a"
+    };
+
+    // --------------------------------------
+    // SCENES & GAME FLOW (with dead ends)
+    // --------------------------------------
+    const scenes = {
+      // INTRO
+      start: {
+        text: "You awaken in a bright pixel-plaza. A glowing MAP floats before you. A lost Noogler nearby mutters, 'Wish I had a map...' Exits lead NORTH and EAST.",
+        choices: [
+          { text: "Grab the MAP", next: "grab_map", cond: () => !inv.map },
+          { text: "Talk to Noogler", next: "noogler" },
+          { text: "Go NORTH", next: "fountain" },
+          { text: "Go EAST", next: "coin_room" },
+          { text: "Go WEST", next: "deadend_gate" } // Dead end
+        ]
+      },
+      deadend_gate: {
+        text: "<span class='deadend'>You hit a locked iron gate. There's no way through. You must turn back.</span>",
+        choices: [
+          { text: "Go EAST", next: "start" }
+        ]
+      },
+      grab_map: {
+        text: "You grab the MAP. The Noogler eyes you hopefully.",
+        effect: () => { inv.map = true; },
+        choices: [
+          { text: "Give MAP to Noogler", next: "give_map", cond: () => !inv.noogler_helped },
+          { text: "Talk to Noogler", next: "noogler" },
+          { text: "Go NORTH", next: "fountain" },
+          { text: "Go EAST", next: "coin_room" }
+        ]
+      },
+      noogler: {
+        text: "Noogler: 'If you see a map, please help me! I’m so lost.'",
+        choices: [
+          { text: "Give MAP to Noogler", next: "give_map", cond: () => inv.map && !inv.noogler_helped },
+          { text: "Go NORTH", next: "fountain" },
+          { text: "Go EAST", next: "coin_room" }
+        ]
+      },
+      give_map: {
+        text: "You hand over the MAP. The Noogler thanks you with a COIN: 'This might come in handy!' The path NORTH is now open.",
+        effect: () => { inv.coin = true; inv.noogler_helped = true; },
+        choices: [
+          { text: "Go NORTH", next: "fountain" },
+          { text: "Go EAST", next: "coin_room" }
+        ]
+      },
+
+      // COIN ROOM (optional, rewards snack for a puzzle later)
+      coin_room: {
+        text: "You enter a vending alcove. A VENDING MACHINE hums. Slots: [Insert coin], [Kick it], [Inspect]. Exits: WEST (plaza), EAST (dark hallway).",
+        choices: [
+          { text: "Insert COIN", next: "get_snack", cond: () => inv.coin && !inv.snack },
+          { text: "Kick the machine", next: "kick_machine", cond: () => !inv.snack },
+          { text: "Inspect machine", next: "inspect_machine" },
+          { text: "Go WEST", next: "start" },
+          { text: "Go EAST", next: "deadend_darkhall" } // Dead end
+        ]
+      },
+      get_snack: {
+        text: "You insert the COIN. A SNACK drops down! (Could this distract someone... or something?)",
+        effect: () => { inv.snack = true; inv.coin = false; },
+        choices: [
+          { text: "Go WEST", next: "start" }
+        ]
+      },
+      kick_machine: {
+        text: "You kick the machine. It rattles, but nothing happens.",
+        choices: [
+          { text: "Go WEST", next: "start" }
+        ]
+      },
+      inspect_machine: {
+        text: "The machine has old snack wrappers and a slot for coins.",
+        choices: [
+          { text: "Go WEST", next: "start" }
+        ]
+      },
+      deadend_darkhall: {
+        text: "<span class='deadend'>You walk into a pitch dark hallway. The door slams behind you... nothing but darkness! You fumble your way back.</span>",
+        choices: [
+          { text: "Go WEST", next: "coin_room" }
+        ]
+      },
+
+      // FOUNTAIN & LETTER D BRANCH
+      fountain: {
+        text: "A digital FOUNTAIN bubbles. A floating DISK hovers. Exits: SOUTH (plaza), EAST (garden), WEST (lawn), NORTH (mist path).",
+        choices: [
+          { text: "Grab the DISK", next: "grab_disk", cond: () => !inv.disk },
+          { text: "Go SOUTH", next: "start" },
+          { text: "Go EAST", next: "garden" },
+          { text: "Go WEST", next: "chairs" },
+          { text: "Go NORTH", next: "deadend_mist" } // Dead end
+        ]
+      },
+      deadend_mist: {
+        text: "<span class='deadend'>The mist thickens as you move forward. Soon you can’t see your hand in front of your face. You quickly retreat.</span>",
+        choices: [
+          { text: "Go SOUTH", next: "fountain" }
+        ]
+      },
+      grab_disk: {
+        text: "You grab the DISK. It hums with energy.",
+        effect: () => { inv.disk = true; },
+        choices: [
+          { text: "Go EAST", next: "garden" },
+          { text: "Go WEST", next: "chairs" },
+          { text: "Go SOUTH", next: "start" }
+        ]
+      },
+      garden: {
+        text: "A pixel-flower wilts here. A WATERING CAN and a CROWBAR rest nearby. Exits: WEST (fountain), NORTH (shed), SOUTH (overgrown path).",
+        choices: [
+          { text: "Grab WATERING CAN", next: "grab_can", cond: () => !inv.can },
+          { text: "Grab CROWBAR", next: "grab_crowbar", cond: () => !inv.crowbar },
+          { text: "Use WATERING CAN on flower", next: "bloom", cond: () => inv.can && !inv.flower },
+          { text: "Use SNACK on crow", next: "crow_garden", cond: () => inv.snack && !inv.flower },
+          { text: "Go WEST", next: "fountain" },
+          { text: "Go NORTH", next: "shed" },
+          { text: "Go SOUTH", next: "deadend_overgrown" } // Dead end
+        ]
+      },
+      deadend_overgrown: {
+        text: "<span class='deadend'>You push through the overgrowth, but thorny vines block all progress. You must turn back.</span>",
+        choices: [
+          { text: "Go NORTH", next: "garden" }
+        ]
+      },
+      grab_can: {
+        text: "You take the WATERING CAN.",
+        effect: () => { inv.can = true; },
+        choices: [
+          { text: "Use WATERING CAN on flower", next: "bloom", cond: () => inv.can && !inv.flower },
+          { text: "Go WEST", next: "fountain" },
+          { text: "Go NORTH", next: "shed" }
+        ]
+      },
+      grab_crowbar: {
+        text: "You pick up the sturdy CROWBAR.",
+        effect: () => { inv.crowbar = true; },
+        choices: [
+          { text: "Go WEST", next: "fountain" },
+          { text: "Go NORTH", next: "shed" }
+        ]
+      },
+      bloom: {
+        text: "You water the flower. It blooms, revealing a shiny button. You press it—a secret panel opens, showing <span style='color:#0074d9;'>Letter D</span>!",
+        effect: () => { inv.flower = true; inv.letter_d = true; },
+        choices: [
+          { text: "Go WEST", next: "fountain" },
+          { text: "Go NORTH", next: "shed" }
+        ]
+      },
+      crow_garden: {
+        text: "You leave the SNACK out. A digital crow swoops in, revealing a shiny button. You press it—a secret panel opens, showing <span style='color:#0074d9;'>Letter D</span>!",
+        effect: () => { inv.flower = true; inv.letter_d = true; inv.snack = false; },
+        choices: [
+          { text: "Go WEST", next: "fountain" },
+          { text: "Go NORTH", next: "shed" }
+        ]
+      },
+
+      // SHED (item for river puzzle)
+      shed: {
+        text: "You are in a tool shed. A WRENCH hangs on the wall. Exits: SOUTH (garden), EAST (paint closet).",
+        choices: [
+          { text: "Grab WRENCH", next: "grab_wrench", cond: () => !inv.wrench },
+          { text: "Go SOUTH", next: "garden" },
+          { text: "Go EAST", next: "deadend_paintcloset" } // Dead end
+        ]
+      },
+      deadend_paintcloset: {
+        text: "<span class='deadend'>You open the paint closet: it's pitch black, and you hear something skittering. You slam the door and retreat.</span>",
+        choices: [
+          { text: "Go WEST", next: "shed" }
+        ]
+      },
+      grab_wrench: {
+        text: "You take the WRENCH.",
+        effect: () => { inv.wrench = true; },
+        choices: [
+          { text: "Go SOUTH", next: "garden" }
+        ]
+      },
+
+      // LAWN & LETTER E BRANCH
+      chairs: {
+        text: "You reach colorful pixel-art chairs. Exits: EAST (fountain), SOUTH (snack table), WEST (breakroom), NORTH (library).",
+        choices: [
+          { text: "Go SOUTH", next: "snack" },
+          { text: "Go WEST", next: "breakroom" },
+          { text: "Go EAST", next: "fountain" },
+          { text: "Go NORTH", next: "library" }
+        ]
+      },
+      snack: {
+        text: "A table holds a BANANA. A suspicious monkey eyes you from a distance.",
+        choices: [
+          { text: "Grab BANANA", next: "grab_banana", cond: () => !inv.banana },
+          { text: "Go NORTH", next: "chairs" }
+        ]
+      },
+      grab_banana: {
+        text: "You take the BANANA.",
+        effect: () => { inv.banana = true; },
+        choices: [
+          { text: "Go NORTH", next: "chairs" }
+        ]
+      },
+      breakroom: {
+        text: "A digital monkey blocks the way WEST. Exits: EAST (chairs), WEST (maintenance closet).",
+        choices: [
+          { text: "Use BANANA", next: "monkey_e", cond: () => inv.banana && !inv.letter_e },
+          { text: "Use SNACK", next: "monkey_snack", cond: () => inv.snack && !inv.letter_e },
+          { text: "Try to sneak past", next: "monkey_fail", cond: () => !inv.letter_e },
+          { text: "Go EAST", next: "chairs" },
+          { text: "Go WEST", next: "deadend_maint" } // Dead end
+        ]
+      },
+      monkey_e: {
+        text: "You offer the BANANA. The monkey grins and hands you <span style='color:#0074d9;'>Letter E</span>.",
+        effect: () => { inv.letter_e = true; inv.banana = false; },
+        choices: [
+          { text: "Go WEST", next: "mosaic" },
+          { text: "Go EAST", next: "chairs" }
+        ]
+      },
+      monkey_snack: {
+        text: "You offer the SNACK. The monkey is delighted and reveals a hidden <span style='color:#0074d9;'>Letter E</span> under a cushion.",
+        effect: () => { inv.letter_e = true; inv.snack = false; },
+        choices: [
+          { text: "Go WEST", next: "mosaic" },
+          { text: "Go EAST", next: "chairs" }
+        ]
+      },
+      monkey_fail: {
+        text: "You try to sneak past. The monkey blocks you, shaking its head.",
+        choices: [
+          { text: "Go EAST", next: "chairs" }
+        ]
+      },
+      deadend_maint: {
+        text: "<span class='deadend'>You open the maintenance closet: a cloud of dust and a swarm of pixel-mice chase you out!</span>",
+        choices: [
+          { text: "Go EAST", next: "breakroom" }
+        ]
+      },
+
+      // LIBRARY (bonus: secret note for vault hint)
+      library: {
+        text: "A quiet library. Shelves are filled with CODE BOOKS. Exits: SOUTH (chairs), NORTH (secret alcove), EAST (book return).",
+        choices: [
+          { text: "Grab BOOK", next: "grab_book", cond: () => !inv.book },
+          { text: "Read secret note", next: "read_note", cond: () => inv.book && !inv.secret_note },
+          { text: "Go SOUTH", next: "chairs" },
+          { text: "Go NORTH", next: "secret_alcove" },
+          { text: "Go EAST", next: "deadend_bookreturn" } // Dead end
+        ]
+      },
+      grab_book: {
+        text: "You take a CODE BOOK. A note falls out.",
+        effect: () => { inv.book = true; },
+        choices: [
+          { text: "Read secret note", next: "read_note", cond: () => !inv.secret_note },
+          { text: "Go SOUTH", next: "chairs" },
+          { text: "Go NORTH", next: "secret_alcove" }
+        ]
+      },
+      read_note: {
+        text: "The note reads: 'The vault opens for those who spell DEMYRA. Letters are everywhere, if you know where to look.'",
+        effect: () => { inv.secret_note = true; },
+        choices: [
+          { text: "Go SOUTH", next: "chairs" },
+          { text: "Go NORTH", next: "secret_alcove" }
+        ]
+      },
+      secret_alcove: {
+        text: "A hidden alcove. You find a ROBOT FRIEND who will help at the river.",
+        effect: () => { inv.robot_friend = true; },
+        choices: [
+          { text: "Go SOUTH", next: "library" }
+        ]
+      },
+      deadend_bookreturn: {
+        text: "<span class='deadend'>The book return slot is stuck. You hear books rumbling inside, but the door won't budge. You return to the library.</span>",
+        choices: [
+          { text: "Go WEST", next: "library" }
+        ]
+      },
+
+      // MOSAIC & LETTER M BRANCH
+      mosaic: {
+        text: "A wall is covered in mosaic tiles. A PAINTBRUSH rests nearby. Exits: EAST (breakroom), SOUTH (mural), WEST (arena).",
+        choices: [
+          { text: "Grab PAINTBRUSH", next: "grab_brush", cond: () => !inv.brush },
+          { text: "Go SOUTH", next: "mural" },
+          { text: "Go WEST", next: "arena" },
+          { text: "Go EAST", next: "breakroom" }
+        ]
+      },
+      grab_brush: {
+        text: "You grab the PAINTBRUSH.",
+        effect: () => { inv.brush = true; },
+        choices: [
+          { text: "Go SOUTH", next: "mural" },
+          { text: "Go WEST", next: "arena" },
+          { text: "Go EAST", next: "breakroom" }
+        ]
+      },
+      mural: {
+        text: "A blank spot on the mural. There's a code panel here.",
+        choices: [
+          { text: "Use PAINTBRUSH", next: "paint_m", cond: () => inv.brush && !inv.letter_m },
+          { text: "Enter code: 314", next: "code_m", cond: () => !inv.letter_m },
+          { text: "Go NORTH", next: "mosaic" }
+        ]
+      },
+      paint_m: {
+        text: "You paint the mural. A glowing <span style='color:#0074d9;'>Letter M</span> appears!",
+        effect: () => { inv.letter_m = true; },
+        choices: [
+          { text: "Go NORTH", next: "mosaic" }
+        ]
+      },
+      code_m: {
+        text: "You enter '314'—the panel slides open, revealing <span style='color:#0074d9;'>Letter M</span>.",
+        effect: () => { inv.letter_m = true; inv.mural_code = true; },
+        choices: [
+          { text: "Go NORTH", next: "mosaic" }
+        ]
+      },
+
+      // ARENA & LETTER Y BRANCH
+      arena: {
+        text: "You enter a ping-pong ARENA. A friendly robot awaits. Exits: EAST (mosaic), NORTH (trophy room), WEST (equipment shed).",
+        choices: [
+          { text: "Grab PADDLE", next: "grab_paddle", cond: () => !inv.paddle },
+          { text: "Challenge robot to a match", next: "win_y", cond: () => inv.paddle && !inv.letter_y },
+          { text: "Ask robot for help", next: "robot_help", cond: () => inv.robot_friend && !inv.letter_y },
+          { text: "Go EAST", next: "mosaic" },
+          { text: "Go NORTH", next: "trophy_room" },
+          { text: "Go WEST", next: "deadend_equip" } // Dead end
+        ]
+      },
+      grab_paddle: {
+        text: "You grab the PADDLE.",
+        effect: () => { inv.paddle = true; },
+        choices: [
+          { text: "Challenge robot to a match", next: "win_y", cond: () => !inv.letter_y },
+          { text: "Go EAST", next: "mosaic" },
+          { text: "Go NORTH", next: "trophy_room" }
+        ]
+      },
+      win_y: {
+        text: "You win the match! The robot gives you <span style='color:#0074d9;'>Letter Y</span>.",
+        effect: () => { inv.letter_y = true; },
+        choices: [
+          { text: "Go EAST", next: "mosaic" },
+          { text: "Go NORTH", next: "trophy_room" }
+        ]
+      },
+      robot_help: {
+        text: "Robot: 'Because you found my friend in the library, here is <span style='color:#0074d9;'>Letter Y</span>!'",
+        effect: () => { inv.letter_y = true; },
+        choices: [
+          { text: "Go EAST", next: "mosaic" },
+          { text: "Go NORTH", next: "trophy_room" }
+        ]
+      },
+      trophy_room: {
+        text: "A room full of trophies, but nothing else of use. Go SOUTH.",
+        choices: [
+          { text: "Go SOUTH", next: "arena" }
+        ]
+      },
+      deadend_equip: {
+        text: "<span class='deadend'>The equipment shed is locked. An angry groundskeeper yells, 'No entry!' You retreat.</span>",
+        choices: [
+          { text: "Go EAST", next: "arena" }
+        ]
+      },
+
+      // RIVER & LETTER R BRANCH
+      river: {
+        text: "A river blocks the way. The bridge is missing planks. Exits: SOUTH (arena), NORTH (vault), EAST (swamp).",
+        choices: [
+          { text: "Use WRENCH on bolts", next: "loosen_bolts", cond: () => inv.wrench && !inv.bolts_loosened },
+          { text: "Use CROWBAR to pry planks", next: "pry_planks", cond: () => inv.crowbar && !inv.bolts_loosened },
+          { text: "Ask robot friend for help", next: "robot_river", cond: () => inv.robot_friend && !inv.bolts_loosened },
+          { text: "Cross bridge", next: "cross_bridge", cond: () => inv.bolts_loosened },
+          { text: "Go SOUTH", next: "arena" },
+          { text: "Go EAST", next: "deadend_swamp" } // Dead end
+        ]
+      },
+      deadend_swamp: {
+        text: "<span class='deadend'>You enter the swamp. The ground is sticky and you sink up to your knees. You panic and scramble back to the bridge.</span>",
+        choices: [
+          { text: "Go WEST", next: "river" }
+        ]
+      },
+      loosen_bolts: {
+        text: "You use the WRENCH to loosen bolts. A compartment opens, revealing <span style='color:#0074d9;'>Letter R</span>.",
+        effect: () => { inv.bolts_loosened = true; inv.letter_r = true; },
+        choices: [
+          { text: "Cross bridge", next: "cross_bridge" },
+          { text: "Go SOUTH", next: "arena" }
+        ]
+      },
+      pry_planks: {
+        text: "You use the CROWBAR. A secret compartment cracks open—inside is <span style='color:#0074d9;'>Letter R</span>.",
+        effect: () => { inv.bolts_loosened = true; inv.letter_r = true; },
+        choices: [
+          { text: "Cross bridge", next: "cross_bridge" },
+          { text: "Go SOUTH", next: "arena" }
+        ]
+      },
+      robot_river: {
+        text: "Your robot friend repairs the bridge and finds <span style='color:#0074d9;'>Letter R</span> inside a hatch.",
+        effect: () => { inv.bolts_loosened = true; inv.letter_r = true; },
+        choices: [
+          { text: "Cross bridge", next: "cross_bridge" },
+          { text: "Go SOUTH", next: "arena" }
+        ]
+      },
+      cross_bridge: {
+        text: "You cross the bridge. Exits: SOUTH (river), NORTH (server room).",
+        choices: [
+          { text: "Go NORTH", next: "server" },
+          { text: "Go SOUTH", next: "river" }
+        ]
+      },
+
+      // SERVER ROOM & LETTER A BRANCH
+      server: {
+        text: "You find the SERVER ROOM. Sparks fly. A FIRE EXTINGUISHER hangs on the wall. Exits: SOUTH (river), NORTH (vault), EAST (data center).",
+        choices: [
+          { text: "Grab FIRE EXTINGUISHER", next: "grab_ext", cond: () => !inv.ext },
+          { text: "Use FIRE EXTINGUISHER", next: "extinguish_fire", cond: () => inv.ext && !inv.letter_a },
+          { text: "Use DISK in slot", next: "disk_a", cond: () => inv.disk && !inv.letter_a },
+          { text: "Go SOUTH", next: "cross_bridge" },
+          { text: "Go NORTH", next: "vault" },
+          { text: "Go EAST", next: "deadend_datacenter" } // Dead end
+        ]
+      },
+      deadend_datacenter: {
+        text: "<span class='deadend'>The data center is locked. A red light flashes: 'ACCESS DENIED!'. You turn back.</span>",
+        choices: [
+          { text: "Go WEST", next: "server" }
+        ]
+      },
+      grab_ext: {
+        text: "You grab the FIRE EXTINGUISHER.",
+        effect: () => { inv.ext = true; },
+        choices: [
+          { text: "Use FIRE EXTINGUISHER", next: "extinguish_fire", cond: () => !inv.letter_a },
+          { text: "Go SOUTH", next: "cross_bridge" },
+          { text: "Go NORTH", next: "vault" }
+        ]
+      },
+      extinguish_fire: {
+        text: "You put out the sparks. A trapdoor opens—inside is <span style='color:#0074d9;'>Letter A</span>!",
+        effect: () => { inv.letter_a = true; },
+        choices: [
+          { text: "Go NORTH", next: "vault" },
+          { text: "Go SOUTH", next: "cross_bridge" }
+        ]
+      },
+      disk_a: {
+        text: "You insert the DISK. The server whirrs and a hatch opens, revealing <span style='color:#0074d9;'>Letter A</span>!",
+        effect: () => { inv.letter_a = true; },
+        choices: [
+          { text: "Go NORTH", next: "vault" },
+          { text: "Go SOUTH", next: "cross_bridge" }
+        ]
+      },
+
+      // VAULT (final puzzle)
+      vault: {
+        text: "You stand before a massive VAULT. The letters <span class='letters'>" +
+              "<span>D</span><span>E</span><span>M</span><span>Y</span><span>R</span><span>A</span></span> glow in your inventory.",
+        choices: [
+          { text: "Enter code: DEMYRA", next: "finale", cond: () => Object.values(letters).every(l => inv[l]) },
+          { text: "Go SOUTH", next: "server" }
+        ]
+      },
+      finale: {
+        text: "The vault opens! Light floods the room, and you behold... THE DEMYRA!",
+        img: "https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=600&q=80", // Replace with your image
+        choices: [
+          { text: "Play again", next: "reset" }
+        ]
+      },
+      reset: {
+        text: "Your memory fades. You awake in a pixelated plaza...",
+        effect: () => { Object.keys(inv).forEach(k => inv[k]=false); },
+        choices: [
+          { text: "Start Over", next: "start" }
+        ]
+      }
+    };
+
+    // --------------------------------------
+    // Rendering logic
+    // --------------------------------------
+    let current = "start";
+    function render() {
+      // Apply effect if present
+      const scene = scenes[current];
+      if (scene.effect) scene.effect();
+      // Render story
+      document.getElementById('story').innerHTML = scene.text;
+      // Show image if present
+      const existingImg = document.querySelector('.demyra-img');
+      if (existingImg) existingImg.remove();
+      if (scene.img) {
+        const img = document.createElement('img');
+        img.src = scene.img;
+        img.alt = "The Demyra";
+        img.className = "demyra-img";
+        document.getElementById('game').appendChild(img);
+      }
+      // Inventory
+      let foundLetters = Object.keys(letters).filter(k => inv[k]).map(k => k.replace('letter_', '').toUpperCase());
+      let items = [];
+      if (inv.map) items.push("MAP");
+      if (inv.coin) items.push("COIN");
+      if (inv.snack) items.push("SNACK");
+      if (inv.disk) items.push("DISK");
+      if (inv.can) items.push("WATERING CAN");
+      if (inv.crowbar) items.push("CROWBAR");
+      if (inv.banana) items.push("BANANA");
+      if (inv.brush) items.push("PAINTBRUSH");
+      if (inv.paddle) items.push("PADDLE");
+      if (inv.wrench) items.push("WRENCH");
+      if (inv.ext) items.push("FIRE EXTINGUISHER");
+      if (inv.book) items.push("CODE BOOK");
+      if (inv.secret_note) items.push("SECRET NOTE");
+      if (inv.robot_friend) items.push("ROBOT FRIEND");
+      document.getElementById('inv').innerHTML =
+        "<b>Inventory:</b> " + (items.length ? items.join(", ") : "empty") +
+        "<br><b>Letters:</b> " + (foundLetters.length ? foundLetters.join(", ") : "none");
+      // Choices
+      const choicesDiv = document.getElementById('choices');
+      choicesDiv.innerHTML = '';
+      (scene.choices || []).forEach(choice => {
+        if (!choice.cond || choice.cond()) {
+          const btn = document.createElement('button');
+          btn.className = 'choice-btn';
+          btn.innerHTML = choice.text;
+          btn.onclick = () => {
+            if (choice.next === "reset") {
+              inv = {...Object.fromEntries(Object.keys(inv).map(k=>[k,false]))};
+              current = "start";
+            } else {
+              current = choice.next;
+            }
+            render();
+          };
+          choicesDiv.appendChild(btn);
+        }
+      });
+    }
+    render();
+  </script>
+</body>
+</html>
