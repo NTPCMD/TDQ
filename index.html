@@ -50,7 +50,7 @@
       book: false,
       secret_note: false,
       robot_friend: false,
-      noogler_helped: false, // <-- Added for logic
+      noogler_helped: false,
       letter_d: false,
       letter_e: false,
       letter_m: false,
@@ -70,7 +70,7 @@
     };
 
     // --------------------------------------
-    // SCENES & GAME FLOW (with dead ends and fixed map connections)
+    // SCENES & GAME FLOW
     // --------------------------------------
     const scenes = {
       // INTRO
@@ -110,14 +110,14 @@
       },
       give_map: {
         text: "You hand over the MAP. The Noogler thanks you with a COIN: 'This might come in handy!' The path NORTH is now open.",
-        effect: () => { inv.coin = true; inv.noogler_helped = true; },
+        effect: () => { inv.coin = true; inv.noogler_helped = true; inv.map = false; },
         choices: [
           { text: "Go NORTH", next: "fountain" },
           { text: "Go EAST", next: "coin_room" }
         ]
       },
 
-      // COIN ROOM (optional, rewards snack for a puzzle later)
+      // COIN ROOM
       coin_room: {
         text: "You enter a vending alcove. A VENDING MACHINE hums. Slots: [Insert coin], [Kick it], [Inspect]. Exits: WEST (plaza), EAST (dark hallway).",
         choices: [
@@ -154,7 +154,7 @@
         ]
       },
 
-      // FOUNTAIN & LETTER D BRANCH
+      // FOUNTAIN & LETTER D
       fountain: {
         text: "A digital FOUNTAIN bubbles. A floating DISK hovers. Exits: SOUTH (plaza), EAST (garden), WEST (lawn), NORTH (mist path).",
         choices: [
@@ -232,7 +232,7 @@
         ]
       },
 
-      // SHED (item for river puzzle)
+      // SHED
       shed: {
         text: "You are in a tool shed. A WRENCH hangs on the wall. Exits: SOUTH (garden), EAST (paint closet).",
         choices: [
@@ -255,7 +255,7 @@
         ]
       },
 
-      // LAWN & LETTER E BRANCH
+      // LAWN & LETTER E
       chairs: {
         text: "You reach colorful pixel-art chairs. Exits: EAST (fountain), SOUTH (snack table), WEST (breakroom), NORTH (library).",
         choices: [
@@ -280,14 +280,29 @@
         ]
       },
       breakroom: {
-        text: "A digital monkey blocks the way WEST. Exits: EAST (chairs), WEST (maintenance closet).",
-        choices: [
-          { text: "Use BANANA", next: "monkey_e", cond: () => inv.banana && !inv.letter_e },
-          { text: "Use SNACK", next: "monkey_snack", cond: () => inv.snack && !inv.letter_e },
-          { text: "Try to sneak past", next: "monkey_fail", cond: () => !inv.letter_e },
-          { text: "Go EAST", next: "chairs" },
-          { text: "Go WEST", next: "deadend_maint" }
-        ]
+        text: function() {
+          if (inv.letter_e) {
+            return "The monkey is gone. The path WEST is clear.";
+          } else {
+            return "A digital monkey blocks the way WEST. Exits: EAST (chairs), WEST (maintenance closet).";
+          }
+        },
+        choices: function() {
+          if (inv.letter_e) {
+            return [
+              { text: "Go WEST", next: "mosaic" },
+              { text: "Go EAST", next: "chairs" }
+            ];
+          } else {
+            return [
+              { text: "Use BANANA", next: "monkey_e", cond: () => inv.banana && !inv.letter_e },
+              { text: "Use SNACK", next: "monkey_snack", cond: () => inv.snack && !inv.letter_e },
+              { text: "Try to sneak past", next: "monkey_fail", cond: () => !inv.letter_e },
+              { text: "Go EAST", next: "chairs" },
+              { text: "Go WEST", next: "deadend_maint" }
+            ];
+          }
+        }
       },
       monkey_e: {
         text: "You offer the BANANA. The monkey grins and hands you <span style='color:#0074d9;'>Letter E</span>.",
@@ -318,7 +333,7 @@
         ]
       },
 
-      // LIBRARY (bonus: secret note for vault hint)
+      // LIBRARY
       library: {
         text: "A quiet library. Shelves are filled with CODE BOOKS. Exits: SOUTH (chairs), NORTH (secret alcove), EAST (book return).",
         choices: [
@@ -360,7 +375,7 @@
         ]
       },
 
-      // MOSAIC & LETTER M BRANCH
+      // MOSAIC & LETTER M
       mosaic: {
         text: "A wall is covered in mosaic tiles. A PAINTBRUSH rests nearby. Exits: EAST (breakroom), SOUTH (mural), WEST (arena).",
         choices: [
@@ -402,7 +417,7 @@
         ]
       },
 
-      // ARENA & LETTER Y BRANCH
+      // ARENA & LETTER Y
       arena: {
         text: "You enter a ping-pong ARENA. A friendly robot awaits. Exits: EAST (mosaic), NORTH (river), WEST (equipment shed), SOUTH (chairs), NORTH (river).",
         choices: [
@@ -410,7 +425,7 @@
           { text: "Challenge robot to a match", next: "win_y", cond: () => inv.paddle && !inv.letter_y },
           { text: "Ask robot for help", next: "robot_help", cond: () => inv.robot_friend && !inv.letter_y },
           { text: "Go EAST", next: "mosaic" },
-          { text: "Go NORTH", next: "river" }, // <-- Path to river
+          { text: "Go NORTH", next: "river" },
           { text: "Go SOUTH", next: "chairs" },
           { text: "Go WEST", next: "deadend_equip" }
         ]
@@ -456,7 +471,7 @@
         ]
       },
 
-      // RIVER & LETTER R BRANCH
+      // RIVER & LETTER R
       river: {
         text: "A river blocks the way. The bridge is missing planks. Exits: SOUTH (arena), NORTH (server), EAST (swamp).",
         choices: [
@@ -465,7 +480,7 @@
           { text: "Ask robot friend for help", next: "robot_river", cond: () => inv.robot_friend && !inv.bolts_loosened },
           { text: "Cross bridge", next: "cross_bridge", cond: () => inv.bolts_loosened },
           { text: "Go SOUTH", next: "arena" },
-          { text: "Go NORTH", next: "server" }, // <-- Path to server room
+          { text: "Go NORTH", next: "server" },
           { text: "Go EAST", next: "deadend_swamp" }
         ]
       },
@@ -510,7 +525,7 @@
         ]
       },
 
-      // SERVER ROOM & LETTER A BRANCH
+      // SERVER ROOM & LETTER A
       server: {
         text: "You find the SERVER ROOM. Sparks fly. A FIRE EXTINGUISHER hangs on the wall. Exits: SOUTH (river), NORTH (vault), EAST (data center).",
         choices: [
@@ -587,14 +602,15 @@
       // Apply effect if present
       const scene = scenes[current];
       if (scene.effect) scene.effect();
-      // Render story
-      document.getElementById('story').innerHTML = scene.text;
+      // Handle text if function or string
+      const sceneText = typeof scene.text === "function" ? scene.text() : scene.text;
+      document.getElementById('story').innerHTML = sceneText;
       // Show image if present
       const existingImg = document.querySelector('.demyra-img');
       if (existingImg) existingImg.remove();
       if (scene.img) {
         const img = document.createElement('img');
-        img.src = IMG_4188.jpeg;
+        img.src = scene.img;
         img.alt = "The Demyra";
         img.className = "demyra-img";
         document.getElementById('game').appendChild(img);
@@ -619,17 +635,18 @@
       document.getElementById('inv').innerHTML =
         "<b>Inventory:</b> " + (items.length ? items.join(", ") : "empty") +
         "<br><b>Letters:</b> " + (foundLetters.length ? foundLetters.join(", ") : "none");
-      // Choices
+      // Choices (handle function or array)
       const choicesDiv = document.getElementById('choices');
       choicesDiv.innerHTML = '';
-      (scene.choices || []).forEach(choice => {
+      const sceneChoices = typeof scene.choices === "function" ? scene.choices() : (scene.choices || []);
+      sceneChoices.forEach(choice => {
         if (!choice.cond || choice.cond()) {
           const btn = document.createElement('button');
           btn.className = 'choice-btn';
           btn.innerHTML = choice.text;
           btn.onclick = () => {
             if (choice.next === "reset") {
-              inv = {...Object.fromEntries(Object.keys(inv).map(k=>[k,false]))};
+              inv = {...Object.fromEntries(Object.keys(inv).map(k => [k, false]))};
               current = "start";
             } else {
               current = choice.next;
