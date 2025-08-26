@@ -50,7 +50,7 @@
       book: false,
       secret_note: false,
       robot_friend: false,
-      // Letters:
+      noogler_helped: false, // <-- Added for logic
       letter_d: false,
       letter_e: false,
       letter_m: false,
@@ -70,7 +70,7 @@
     };
 
     // --------------------------------------
-    // SCENES & GAME FLOW (with dead ends)
+    // SCENES & GAME FLOW (with dead ends and fixed map connections)
     // --------------------------------------
     const scenes = {
       // INTRO
@@ -81,7 +81,7 @@
           { text: "Talk to Noogler", next: "noogler" },
           { text: "Go NORTH", next: "fountain" },
           { text: "Go EAST", next: "coin_room" },
-          { text: "Go WEST", next: "deadend_gate" } // Dead end
+          { text: "Go WEST", next: "deadend_gate" }
         ]
       },
       deadend_gate: {
@@ -125,7 +125,7 @@
           { text: "Kick the machine", next: "kick_machine", cond: () => !inv.snack },
           { text: "Inspect machine", next: "inspect_machine" },
           { text: "Go WEST", next: "start" },
-          { text: "Go EAST", next: "deadend_darkhall" } // Dead end
+          { text: "Go EAST", next: "deadend_darkhall" }
         ]
       },
       get_snack: {
@@ -162,7 +162,7 @@
           { text: "Go SOUTH", next: "start" },
           { text: "Go EAST", next: "garden" },
           { text: "Go WEST", next: "chairs" },
-          { text: "Go NORTH", next: "deadend_mist" } // Dead end
+          { text: "Go NORTH", next: "deadend_mist" }
         ]
       },
       deadend_mist: {
@@ -189,7 +189,7 @@
           { text: "Use SNACK on crow", next: "crow_garden", cond: () => inv.snack && !inv.flower },
           { text: "Go WEST", next: "fountain" },
           { text: "Go NORTH", next: "shed" },
-          { text: "Go SOUTH", next: "deadend_overgrown" } // Dead end
+          { text: "Go SOUTH", next: "deadend_overgrown" }
         ]
       },
       deadend_overgrown: {
@@ -238,7 +238,7 @@
         choices: [
           { text: "Grab WRENCH", next: "grab_wrench", cond: () => !inv.wrench },
           { text: "Go SOUTH", next: "garden" },
-          { text: "Go EAST", next: "deadend_paintcloset" } // Dead end
+          { text: "Go EAST", next: "deadend_paintcloset" }
         ]
       },
       deadend_paintcloset: {
@@ -286,7 +286,7 @@
           { text: "Use SNACK", next: "monkey_snack", cond: () => inv.snack && !inv.letter_e },
           { text: "Try to sneak past", next: "monkey_fail", cond: () => !inv.letter_e },
           { text: "Go EAST", next: "chairs" },
-          { text: "Go WEST", next: "deadend_maint" } // Dead end
+          { text: "Go WEST", next: "deadend_maint" }
         ]
       },
       monkey_e: {
@@ -326,7 +326,7 @@
           { text: "Read secret note", next: "read_note", cond: () => inv.book && !inv.secret_note },
           { text: "Go SOUTH", next: "chairs" },
           { text: "Go NORTH", next: "secret_alcove" },
-          { text: "Go EAST", next: "deadend_bookreturn" } // Dead end
+          { text: "Go EAST", next: "deadend_bookreturn" }
         ]
       },
       grab_book: {
@@ -404,14 +404,15 @@
 
       // ARENA & LETTER Y BRANCH
       arena: {
-        text: "You enter a ping-pong ARENA. A friendly robot awaits. Exits: EAST (mosaic), NORTH (trophy room), WEST (equipment shed).",
+        text: "You enter a ping-pong ARENA. A friendly robot awaits. Exits: EAST (mosaic), NORTH (river), WEST (equipment shed), SOUTH (chairs), NORTH (river).",
         choices: [
           { text: "Grab PADDLE", next: "grab_paddle", cond: () => !inv.paddle },
           { text: "Challenge robot to a match", next: "win_y", cond: () => inv.paddle && !inv.letter_y },
           { text: "Ask robot for help", next: "robot_help", cond: () => inv.robot_friend && !inv.letter_y },
           { text: "Go EAST", next: "mosaic" },
-          { text: "Go NORTH", next: "trophy_room" },
-          { text: "Go WEST", next: "deadend_equip" } // Dead end
+          { text: "Go NORTH", next: "river" }, // <-- Path to river
+          { text: "Go SOUTH", next: "chairs" },
+          { text: "Go WEST", next: "deadend_equip" }
         ]
       },
       grab_paddle: {
@@ -420,7 +421,8 @@
         choices: [
           { text: "Challenge robot to a match", next: "win_y", cond: () => !inv.letter_y },
           { text: "Go EAST", next: "mosaic" },
-          { text: "Go NORTH", next: "trophy_room" }
+          { text: "Go NORTH", next: "river" },
+          { text: "Go SOUTH", next: "chairs" }
         ]
       },
       win_y: {
@@ -428,7 +430,8 @@
         effect: () => { inv.letter_y = true; },
         choices: [
           { text: "Go EAST", next: "mosaic" },
-          { text: "Go NORTH", next: "trophy_room" }
+          { text: "Go NORTH", next: "river" },
+          { text: "Go SOUTH", next: "chairs" }
         ]
       },
       robot_help: {
@@ -436,7 +439,8 @@
         effect: () => { inv.letter_y = true; },
         choices: [
           { text: "Go EAST", next: "mosaic" },
-          { text: "Go NORTH", next: "trophy_room" }
+          { text: "Go NORTH", next: "river" },
+          { text: "Go SOUTH", next: "chairs" }
         ]
       },
       trophy_room: {
@@ -454,14 +458,15 @@
 
       // RIVER & LETTER R BRANCH
       river: {
-        text: "A river blocks the way. The bridge is missing planks. Exits: SOUTH (arena), NORTH (vault), EAST (swamp).",
+        text: "A river blocks the way. The bridge is missing planks. Exits: SOUTH (arena), NORTH (server), EAST (swamp).",
         choices: [
           { text: "Use WRENCH on bolts", next: "loosen_bolts", cond: () => inv.wrench && !inv.bolts_loosened },
           { text: "Use CROWBAR to pry planks", next: "pry_planks", cond: () => inv.crowbar && !inv.bolts_loosened },
           { text: "Ask robot friend for help", next: "robot_river", cond: () => inv.robot_friend && !inv.bolts_loosened },
           { text: "Cross bridge", next: "cross_bridge", cond: () => inv.bolts_loosened },
           { text: "Go SOUTH", next: "arena" },
-          { text: "Go EAST", next: "deadend_swamp" } // Dead end
+          { text: "Go NORTH", next: "server" }, // <-- Path to server room
+          { text: "Go EAST", next: "deadend_swamp" }
         ]
       },
       deadend_swamp: {
@@ -475,6 +480,7 @@
         effect: () => { inv.bolts_loosened = true; inv.letter_r = true; },
         choices: [
           { text: "Cross bridge", next: "cross_bridge" },
+          { text: "Go NORTH", next: "server" },
           { text: "Go SOUTH", next: "arena" }
         ]
       },
@@ -483,6 +489,7 @@
         effect: () => { inv.bolts_loosened = true; inv.letter_r = true; },
         choices: [
           { text: "Cross bridge", next: "cross_bridge" },
+          { text: "Go NORTH", next: "server" },
           { text: "Go SOUTH", next: "arena" }
         ]
       },
@@ -491,11 +498,12 @@
         effect: () => { inv.bolts_loosened = true; inv.letter_r = true; },
         choices: [
           { text: "Cross bridge", next: "cross_bridge" },
+          { text: "Go NORTH", next: "server" },
           { text: "Go SOUTH", next: "arena" }
         ]
       },
       cross_bridge: {
-        text: "You cross the bridge. Exits: SOUTH (river), NORTH (server room).",
+        text: "You cross the bridge. Exits: SOUTH (river), NORTH (server).",
         choices: [
           { text: "Go NORTH", next: "server" },
           { text: "Go SOUTH", next: "river" }
@@ -509,9 +517,9 @@
           { text: "Grab FIRE EXTINGUISHER", next: "grab_ext", cond: () => !inv.ext },
           { text: "Use FIRE EXTINGUISHER", next: "extinguish_fire", cond: () => inv.ext && !inv.letter_a },
           { text: "Use DISK in slot", next: "disk_a", cond: () => inv.disk && !inv.letter_a },
-          { text: "Go SOUTH", next: "cross_bridge" },
+          { text: "Go SOUTH", next: "river" },
           { text: "Go NORTH", next: "vault" },
-          { text: "Go EAST", next: "deadend_datacenter" } // Dead end
+          { text: "Go EAST", next: "deadend_datacenter" }
         ]
       },
       deadend_datacenter: {
@@ -525,7 +533,7 @@
         effect: () => { inv.ext = true; },
         choices: [
           { text: "Use FIRE EXTINGUISHER", next: "extinguish_fire", cond: () => !inv.letter_a },
-          { text: "Go SOUTH", next: "cross_bridge" },
+          { text: "Go SOUTH", next: "river" },
           { text: "Go NORTH", next: "vault" }
         ]
       },
@@ -534,7 +542,7 @@
         effect: () => { inv.letter_a = true; },
         choices: [
           { text: "Go NORTH", next: "vault" },
-          { text: "Go SOUTH", next: "cross_bridge" }
+          { text: "Go SOUTH", next: "river" }
         ]
       },
       disk_a: {
@@ -542,7 +550,7 @@
         effect: () => { inv.letter_a = true; },
         choices: [
           { text: "Go NORTH", next: "vault" },
-          { text: "Go SOUTH", next: "cross_bridge" }
+          { text: "Go SOUTH", next: "river" }
         ]
       },
 
@@ -557,7 +565,7 @@
       },
       finale: {
         text: "The vault opens! Light floods the room, and you behold... THE DEMYRA!",
-        img: "IMG_4188.jpeg", // Replace with your image
+        img: "https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=600&q=80",
         choices: [
           { text: "Play again", next: "reset" }
         ]
